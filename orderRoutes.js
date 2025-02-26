@@ -11,7 +11,8 @@ const Order = mongoose.models.Order || mongoose.model("Order", new mongoose.Sche
     address: { type: String, required: true },
     items: [{ name: String, quantity: Number, price: Number }], // ✅ Stores ordered items
     total: { type: Number, required: true },
-    paymentProof: { type: String, required: true }, // ✅ Store file path instead of Base64
+    paymentProof: { type: String, required: true }, // ✅ Store file path
+    status: { type: String, default: "Pending" }, // ✅ Added status field
     createdAt: { type: Date, default: Date.now }
 }));
 
@@ -46,13 +47,16 @@ router.post("/", upload.single("paymentProof"), async (req, res) => {
             address,
             items: parsedItems,
             total,
-            paymentProof: `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`
-
+            paymentProof: `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`,
+            status: "Pending" // ✅ Default status
         });
 
         await newOrder.save();
+        console.log("✅ Order Saved:", newOrder); // ✅ Log new order
+
         res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
     } catch (error) {
+        console.error("❌ Order Submission Error:", error); // ✅ Log server errors
         res.status(500).json({ error: "❌ Server error", details: error.message });
     }
 });
@@ -61,8 +65,10 @@ router.post("/", upload.single("paymentProof"), async (req, res) => {
 router.get("/", async (req, res) => {
     try {
         const orders = await Order.find().sort({ createdAt: -1 }); // Sort by latest orders
+        console.log("📦 Orders fetched:", orders.length); // ✅ Log number of orders
         res.json(orders);
     } catch (error) {
+        console.error("❌ Error fetching orders:", error); // ✅ Log error details
         res.status(500).json({ error: "❌ Server error while fetching orders." });
     }
 });
@@ -71,10 +77,14 @@ router.get("/", async (req, res) => {
 router.delete("/:id", async (req, res) => {
     try {
         const order = await Order.findByIdAndDelete(req.params.id);
-        if (!order) return res.status(404).json({ error: "❌ Order not found." });
+        if (!order) {
+            return res.status(404).json({ error: "❌ Order not found." });
+        }
 
+        console.log(`🗑️ Deleted Order: ${req.params.id}`); // ✅ Log deleted order ID
         res.json({ message: "✅ Order deleted successfully!" });
     } catch (error) {
+        console.error("❌ Error deleting order:", error); // ✅ Log error details
         res.status(500).json({ error: "❌ Server error while deleting order." });
     }
 });
