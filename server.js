@@ -3,11 +3,10 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import productRoutes from "./productRoutes.js";
 import orderRoutes from "./orderRoutes.js";
-import Product from "./product.js"; // Make sure product.js uses ES module syntax
+import Product from "./product.js"; 
+import cloudinary from "./cloudinary.js"; // Import Cloudinary setup
 
 // Initialize Express App
 const app = express();
@@ -27,9 +26,30 @@ mongoose.connect(MONGO_URI)
     process.exit(1);
   });
 
-// Serve Static Files if needed
+// Serve Static Files
 app.use("/uploads", express.static("uploads"));
 app.use(express.static("public"));
+
+// Configure Multer for Cloudinary Uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+// Image Upload Route (Optional if not inside orderRoutes)
+app.post("/api/upload", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+
+    const result = await cloudinary.uploader.upload_stream(
+      { folder: "orders" }, // Cloudinary folder name
+      (error, cloudinaryResult) => {
+        if (error) return res.status(500).json({ error: "Cloudinary Upload Failed" });
+        res.status(200).json({ imageUrl: cloudinaryResult.secure_url });
+      }
+    ).end(req.file.buffer);
+  } catch (error) {
+    res.status(500).json({ error: "Image upload error" });
+  }
+});
 
 // Use Modular Routes
 app.use("/api/products", productRoutes);
@@ -60,5 +80,4 @@ app.use((err, req, res, next) => {
 
 // Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-
 

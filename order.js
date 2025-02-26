@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
     fullname: { type: String, required: true },
@@ -10,4 +10,5 @@ const orderSchema = new mongoose.Schema({
     status: { type: String, default: "Pending" },
 }, { timestamps: true });
 
-module.exports = mongoose.model("Order", orderSchema);
+const Product = mongoose.model("Order", orderSchema);
+export default Product;
