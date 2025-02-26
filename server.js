@@ -6,6 +6,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import productRoutes from "./productRoutes.js";
+import orderRoutes from "./orderroutes.js";
 import Product from "./product.js"; // Make sure product.js uses ES module syntax
 
 // Initialize Express App
@@ -32,6 +33,7 @@ app.use(express.static("public"));
 
 // Use Modular Routes
 app.use("/api/products", productRoutes);
+app.use("/api/orders", orderRoutes);
 
 // Default Route
 app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
@@ -58,4 +60,5 @@ app.use((err, req, res, next) => {
 
 // Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+
 

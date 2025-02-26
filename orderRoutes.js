@@ -1,26 +1,40 @@
-const express = require("express");
-const multer = require("multer");
-const mongoose = require("mongoose");
+import express from "express";
+import multer from "multer";
+import mongoose from "mongoose";
+import cloudinary from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const router = express.Router();
+
+// ✅ Cloudinary Configuration
+cloudinary.v2.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // ✅ Define Order Schema
 const Order = mongoose.models.Order || mongoose.model("Order", new mongoose.Schema({
     fullname: { type: String, required: true },
     gcash: { type: String, required: true },
     address: { type: String, required: true },
-    items: [{ name: String, quantity: Number, price: Number }], // ✅ Stores ordered items
+    items: [{ name: String, quantity: Number, price: Number }],
     total: { type: Number, required: true },
-    paymentProof: { type: String, required: true }, // ✅ Store file path
-    status: { type: String, default: "Pending" }, // ✅ Added status field
+    paymentProof: { type: String, required: true },
+    status: { type: String, default: "Pending" },
     createdAt: { type: Date, default: Date.now }
 }));
 
-// ✅ Multer Setup for Order Payment Proof Upload
-const storage = multer.diskStorage({
-    destination: "uploads/",
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + "-" + file.originalname);
+// ✅ Multer Setup for Cloudinary Upload
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary.v2,
+    params: {
+        folder: "payment_proofs",
+        format: async (req, file) => "png",
+        public_id: (req, file) => Date.now() + "-" + file.originalname
     }
 });
 const upload = multer({ storage });
@@ -47,16 +61,16 @@ router.post("/", upload.single("paymentProof"), async (req, res) => {
             address,
             items: parsedItems,
             total,
-            paymentProof: `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`,
-            status: "Pending" // ✅ Default status
+            paymentProof: req.file.path, // ✅ Cloudinary file URL
+            status: "Pending"
         });
 
         await newOrder.save();
-        console.log("✅ Order Saved:", newOrder); // ✅ Log new order
+        console.log("✅ Order Saved:", newOrder);
 
         res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
     } catch (error) {
-        console.error("❌ Order Submission Error:", error); // ✅ Log server errors
+        console.error("❌ Order Submission Error:", error);
         res.status(500).json({ error: "❌ Server error", details: error.message });
     }
 });
@@ -64,11 +78,11 @@ router.post("/", upload.single("paymentProof"), async (req, res) => {
 // ✅ Fetch all orders
 router.get("/", async (req, res) => {
     try {
-        const orders = await Order.find().sort({ createdAt: -1 }); // Sort by latest orders
-        console.log("📦 Orders fetched:", orders.length); // ✅ Log number of orders
+        const orders = await Order.find().sort({ createdAt: -1 });
+        console.log("📦 Orders fetched:", orders.length);
         res.json(orders);
     } catch (error) {
-        console.error("❌ Error fetching orders:", error); // ✅ Log error details
+        console.error("❌ Error fetching orders:", error);
         res.status(500).json({ error: "❌ Server error while fetching orders." });
     }
 });
@@ -81,13 +95,13 @@ router.delete("/:id", async (req, res) => {
             return res.status(404).json({ error: "❌ Order not found." });
         }
 
-        console.log(`🗑️ Deleted Order: ${req.params.id}`); // ✅ Log deleted order ID
+        console.log(`🗑️ Deleted Order: ${req.params.id}`);
         res.json({ message: "✅ Order deleted successfully!" });
     } catch (error) {
-        console.error("❌ Error deleting order:", error); // ✅ Log error details
+        console.error("❌ Error deleting order:", error);
         res.status(500).json({ error: "❌ Server error while deleting order." });
     }
 });
 
-module.exports = router;
+export default router;
 
