@@ -6,7 +6,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import productRoutes from "./productRoutes.js";
-import orderRoutes from "./orderroutes.js";
+import orderRoutes from "./orderRoutes.js";
 import Product from "./product.js"; // Make sure product.js uses ES module syntax
 
 // Initialize Express App
