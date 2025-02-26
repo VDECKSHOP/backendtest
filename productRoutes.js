@@ -44,18 +44,43 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ✅ DELETE a Product by ID
+// ✅ DELETE a Product by ID (Now Deletes Images from Cloudinary)
 router.delete("/:id", async (req, res) => {
   try {
-    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
-    if (!deletedProduct) {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
       return res.status(404).json({ error: "❌ Product not found." });
     }
-    res.json({ message: "✅ Product deleted successfully!" });
+
+    // Delete images from Cloudinary
+    await Promise.all(
+      product.images.map(async (imageUrl) => {
+        try {
+          const publicId = extractPublicId(imageUrl);
+          if (publicId) {
+            await cloudinary.uploader.destroy(publicId);
+          }
+        } catch (error) {
+          console.error("Error deleting image from Cloudinary:", error);
+        }
+      })
+    );
+
+    // Delete product from database
+    await Product.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "✅ Product and images deleted successfully!" });
   } catch (error) {
     res.status(500).json({ error: "❌ Server error", details: error.message });
   }
 });
+
+// ✅ Function to Extract Cloudinary Public ID
+function extractPublicId(url) {
+  const regex = /\/v\d+\/(.+)\.\w+$/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+}
 
 // ✅ Export router as default
 export default router;
