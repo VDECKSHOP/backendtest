@@ -1,20 +1,12 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-
-// Import Routes
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import mongoose from "mongoose";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import productRoutes from "./productRoutes.js";
- // Updated path here
-// If you have orderRoutes similarly, update accordingly
-
-// Import Product model if needed
-const Product = require("./product");
+import Product from "./product.js"; // Make sure product.js uses ES module syntax
 
 // Initialize Express App
 const app = express();
@@ -40,7 +32,6 @@ app.use(express.static("public"));
 
 // Use Modular Routes
 app.use("/api/products", productRoutes);
-// app.use("/api/orders", orderRoutes); // Update if you have this file in the root
 
 // Default Route
 app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
