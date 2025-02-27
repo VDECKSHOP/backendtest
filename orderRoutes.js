@@ -1,20 +1,11 @@
 import express from "express";
-import multer from "multer";
 import mongoose from "mongoose";
-import cloudinary from "cloudinary";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
+import cloudinary from "./cloudinary.js";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const router = express.Router();
-
-// ✅ Cloudinary Configuration
-cloudinary.v2.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
 // ✅ Define Order Schema
 const Order = mongoose.models.Order || mongoose.model("Order", new mongoose.Schema({
@@ -23,45 +14,41 @@ const Order = mongoose.models.Order || mongoose.model("Order", new mongoose.Sche
     address: { type: String, required: true },
     items: [{ name: String, quantity: Number, price: Number }],
     total: { type: Number, required: true },
-    paymentProof: { type: String, required: true },
+    paymentProof: { type: String, required: true }, // ✅ Single Image URL
     status: { type: String, default: "Pending" },
     createdAt: { type: Date, default: Date.now }
 }));
 
-// ✅ Multer Setup for Cloudinary Upload
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary.v2,
-    params: {
-        folder: "payment_proofs",
-        format: async (req, file) => "png",
-        public_id: (req, file) => Date.now() + "-" + file.originalname
-    }
-});
-const upload = multer({ storage });
-
-// ✅ API to Submit an Order
-router.post("/", upload.single("paymentProof"), async (req, res) => {
+// ✅ API to Submit an Order (With Single Image Upload)
+router.post("/", async (req, res) => {
     try {
-        const { fullname, gcash, address, items, total } = req.body;
+        const { fullname, gcash, address, items, total, paymentProof } = req.body;
 
-        if (!fullname || !gcash || !address || !items || !total || !req.file) {
-            return res.status(400).json({ error: "❌ Please fill in all fields and upload payment proof." });
+        if (!fullname || !gcash || !address || !items || !total || !paymentProof) {
+            return res.status(400).json({ error: "❌ Please fill in all fields and upload a payment proof." });
         }
 
+        // ✅ Parse items if sent as a string
         let parsedItems;
         try {
-            parsedItems = JSON.parse(items);
+            parsedItems = typeof items === "string" ? JSON.parse(items) : items;
         } catch (err) {
             return res.status(400).json({ error: "❌ Invalid items format. Please try again." });
         }
 
+        // ✅ Upload payment proof to Cloudinary
+        const cloudinaryResponse = await cloudinary.uploader.upload(paymentProof, {
+            folder: "payment_proofs"
+        });
+
+        // ✅ Save order in MongoDB
         const newOrder = new Order({
             fullname,
             gcash,
             address,
             items: parsedItems,
             total,
-            paymentProof: req.file.path, // ✅ Cloudinary file URL
+            paymentProof: cloudinaryResponse.secure_url, // ✅ Single image URL
             status: "Pending"
         });
 
@@ -87,13 +74,22 @@ router.get("/", async (req, res) => {
     }
 });
 
-// ✅ Delete an order by ID
+// ✅ Delete an order by ID and remove image from Cloudinary
 router.delete("/:id", async (req, res) => {
     try {
-        const order = await Order.findByIdAndDelete(req.params.id);
+        const order = await Order.findById(req.params.id);
         if (!order) {
             return res.status(404).json({ error: "❌ Order not found." });
         }
+
+        // ✅ Remove image from Cloudinary
+        const publicId = extractPublicId(order.paymentProof);
+        if (publicId) {
+            await cloudinary.uploader.destroy(publicId);
+        }
+
+        // ✅ Delete order from database
+        await Order.findByIdAndDelete(req.params.id);
 
         console.log(`🗑️ Deleted Order: ${req.params.id}`);
         res.json({ message: "✅ Order deleted successfully!" });
@@ -102,6 +98,13 @@ router.delete("/:id", async (req, res) => {
         res.status(500).json({ error: "❌ Server error while deleting order." });
     }
 });
+
+// ✅ Extract public_id from Cloudinary URL
+function extractPublicId(url) {
+    const regex = /\/v\d+\/(.+)\.\w+$/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+}
 
 export default router;
 
