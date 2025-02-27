@@ -13,24 +13,24 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mydatabase";
 
-// 🔥 MongoDB Connection with Auto-Retry
+// 🔥 MongoDB Connection
 async function connectDB() {
   try {
     await mongoose.connect(MONGO_URI);
     console.log("✅ Connected to MongoDB");
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err);
-    setTimeout(connectDB, 5000); // Retry connection every 5 seconds
+    setTimeout(connectDB, 5000); // Retry in 5 seconds
   }
 }
 connectDB();
 
 // 🔧 Middleware
 app.use(cors());
-app.use(express.json({ limit: "50mb" })); // Allow larger images
+app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// 📂 Multer Storage Setup
+// 📂 Multer Storage Setup (For Local File Uploads)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(process.cwd(), "uploads");
@@ -70,7 +70,7 @@ app.get("/api/products/:id", async (req, res) => {
   }
 });
 
-// 📸 Upload Image Route (Example for Product Images)
+// 📸 Upload Image Route (For Local Storage)
 app.post("/api/upload", upload.single("image"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
@@ -86,4 +86,5 @@ app.use((err, req, res, next) => {
 
 // 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+
 
