@@ -1,11 +1,16 @@
 import express from "express";
 import mongoose from "mongoose";
 import cloudinary from "./cloudinary.js";
+import multer from "multer";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const router = express.Router();
+
+// ✅ Set up Multer for file uploads
+const storage = multer.memoryStorage(); // Stores file in memory as a buffer
+const upload = multer({ storage });
 
 // ✅ Define Order Schema
 const Order = mongoose.models.Order || mongoose.model("Order", new mongoose.Schema({
@@ -14,17 +19,17 @@ const Order = mongoose.models.Order || mongoose.model("Order", new mongoose.Sche
     address: { type: String, required: true },
     items: [{ name: String, quantity: Number, price: Number }],
     total: { type: Number, required: true },
-    paymentProof: { type: String, required: true }, // ✅ Single Image URL
+    paymentProof: { type: String, required: true }, // ✅ Cloudinary URL
     status: { type: String, default: "Pending" },
     createdAt: { type: Date, default: Date.now }
 }));
 
-// ✅ API to Submit an Order (With Single Image Upload)
-router.post("/", async (req, res) => {
+// ✅ API to Submit an Order (With Image Upload)
+router.post("/", upload.single("paymentProof"), async (req, res) => {
     try {
-        const { fullname, gcash, address, items, total, paymentProof } = req.body;
+        const { fullname, gcash, address, items, total } = req.body;
 
-        if (!fullname || !gcash || !address || !items || !total || !paymentProof) {
+        if (!fullname || !gcash || !address || !items || !total || !req.file) {
             return res.status(400).json({ error: "❌ Please fill in all fields and upload a payment proof." });
         }
 
@@ -37,88 +42,38 @@ router.post("/", async (req, res) => {
         }
 
         // ✅ Upload payment proof to Cloudinary
-        const cloudinaryResponse = await cloudinary.uploader.upload(paymentProof, {
-            folder: "payment_proofs"
-        });
+        const cloudinaryResponse = await cloudinary.uploader.upload_stream(
+            { folder: "payment_proofs" },
+            async (error, result) => {
+                if (error) {
+                    console.error("❌ Cloudinary Upload Error:", error);
+                    return res.status(500).json({ error: "❌ Failed to upload image." });
+                }
 
-        // ✅ Save order in MongoDB
-        const newOrder = new Order({
-            fullname,
-            gcash,
-            address,
-            items: parsedItems,
-            total,
-            paymentProof: cloudinaryResponse.secure_url, // ✅ Single image URL
-            status: "Pending"
-        });
+                // ✅ Save order in MongoDB
+                const newOrder = new Order({
+                    fullname,
+                    gcash,
+                    address,
+                    items: parsedItems,
+                    total,
+                    paymentProof: result.secure_url, // ✅ Cloudinary image URL
+                    status: "Pending"
+                });
 
-        await newOrder.save();
-        console.log("✅ Order Saved:", newOrder);
+                await newOrder.save();
+                console.log("✅ Order Saved:", newOrder);
+                res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
+            }
+        );
 
-        res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
+        cloudinaryResponse.end(req.file.buffer); // ✅ Upload the file buffer
+
     } catch (error) {
         console.error("❌ Order Submission Error:", error);
         res.status(500).json({ error: "❌ Server error", details: error.message });
     }
 });
-
-// ✅ Fetch all orders
-router.get("/", async (req, res) => {
-    try {
-        const orders = await Order.find().sort({ createdAt: -1 });
-        console.log("📦 Orders fetched:", orders.length);
-        res.json(orders);
-    } catch (error) {
-        console.error("❌ Error fetching orders:", error);
-        res.status(500).json({ error: "❌ Server error while fetching orders." });
-    }
-});
-
-// ✅ Fetch a single order by ID
-router.get("/:id", async (req, res) => {
-    try {
-        const order = await Order.findById(req.params.id);
-        if (!order) {
-            return res.status(404).json({ error: "❌ Order not found." });
-        }
-        res.json(order);
-    } catch (error) {
-        console.error("❌ Error fetching order:", error);
-        res.status(500).json({ error: "❌ Server error while fetching order." });
-    }
-});
-
-// ✅ Delete an order by ID and remove image from Cloudinary
-router.delete("/:id", async (req, res) => {
-    try {
-        const order = await Order.findById(req.params.id);
-        if (!order) {
-            return res.status(404).json({ error: "❌ Order not found." });
-        }
-
-        // ✅ Remove image from Cloudinary
-        const publicId = extractPublicId(order.paymentProof);
-        if (publicId) {
-            await cloudinary.uploader.destroy(publicId);
-        }
-
-        // ✅ Delete order from database
-        await Order.findByIdAndDelete(req.params.id);
-
-        console.log(`🗑️ Deleted Order: ${req.params.id}`);
-        res.json({ message: "✅ Order deleted successfully!" });
-    } catch (error) {
-        console.error("❌ Error deleting order:", error);
-        res.status(500).json({ error: "❌ Server error while deleting order." });
-    }
-});
-
-// ✅ Extract public_id from Cloudinary URL
-function extractPublicId(url) {
-    const regex = /\/v\d+\/(.+)\.\w+$/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
-}
 
 export default router;
 
