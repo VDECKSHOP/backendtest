@@ -4,41 +4,45 @@ import cors from "cors";
 import mongoose from "mongoose";
 import productRoutes from "./productRoutes.js";
 import orderRoutes from "./orderRoutes.js";
-import Product from "./product.js";
+import path from "path";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mydatabase";
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: "10mb" })); // Allow large Base64 images
+// 🔥 Connect to MongoDB
+async function connectDB() {
+    try {
+        await mongoose.connect(MONGO_URI);
+        console.log("✅ Connected to MongoDB");
+    } catch (err) {
+        console.error("❌ MongoDB Connection Error:", err);
+        setTimeout(connectDB, 5000); // Retry connection every 5 seconds
+    }
+}
+connectDB();
+
+// 🔧 Middleware
+app.use(cors()); // Configure specific origins if needed
+app.use(express.json({ limit: "50mb" })); // Support large Base64 images
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mydatabase";
-mongoose.connect(MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => {
-    console.error("❌ MongoDB Connection Error:", err);
-    process.exit(1);
-  });
+// 🔥 Serve Static Files
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use(express.static(path.join(process.cwd(), "public")));
 
-// Serve Static Files
-app.use("/uploads", express.static("uploads"));
-app.use(express.static("public"));
-
-// Use Modular Routes
+// 🚀 API Routes
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 
-// Default Route
+// ✅ Default Route
 app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
 
-// Global Error Handling
+// ❌ Global Error Handling
 app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err);
-  res.status(500).json({ error: "Internal Server Error" });
+    console.error("❌ Server Error:", err);
+    res.status(err.statusCode || 500).json({ error: err.message || "Internal Server Error" });
 });
 
-// Start Server
+// 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
