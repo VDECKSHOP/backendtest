@@ -51,7 +51,7 @@ app.use(express.static(path.join(process.cwd(), "public")));
 
 // 🚀 API Routes
 app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
+app.use("/api/orders", orderRoutes); // ✅ Ensure this route is working
 
 // ✅ Default Route
 app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
@@ -78,6 +78,11 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
   res.json({ imageUrl: `/uploads/${req.file.filename}` });
 });
 
+// ❌ Handle Undefined Routes (Prevents 404 on `/api/orders`)
+app.use((req, res) => {
+  res.status(404).json({ error: "❌ Route Not Found" });
+});
+
 // ❌ Global Error Handling
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err);
@@ -86,5 +91,4 @@ app.use((err, req, res, next) => {
 
 // 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-
 
