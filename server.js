@@ -2,47 +2,61 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
-import productRoutes from "./productRoutes.js";
-import orderRoutes from "./orderRoutes.js";
+import multer from "multer";
 import path from "path";
+import fs from "fs";
+import productRoutes from "./productRoutes.js";
+import orderRoutes from "./orderroutes.js";
+import Product from "./product.js"; // Make sure product.js uses ES module syntax
 
+// Initialize Express App
 const app = express();
 const PORT = process.env.PORT || 4000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mydatabase";
 
-// 🔥 Connect to MongoDB
-async function connectDB() {
-    try {
-        await mongoose.connect(MONGO_URI);
-        console.log("✅ Connected to MongoDB");
-    } catch (err) {
-        console.error("❌ MongoDB Connection Error:", err);
-        setTimeout(connectDB, 5000); // Retry connection every 5 seconds
-    }
-}
-connectDB();
-
-// 🔧 Middleware
-app.use(cors()); // Configure specific origins if needed
-app.use(express.json({ limit: "50mb" })); // Support large Base64 images
+// Middleware
+app.use(cors());
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 🔥 Serve Static Files
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
-app.use(express.static(path.join(process.cwd(), "public")));
+// MongoDB Connection
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mydatabase";
+mongoose.connect(MONGO_URI)
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:", err);
+    process.exit(1);
+  });
 
-// 🚀 API Routes
+// Serve Static Files if needed
+app.use("/uploads", express.static("uploads"));
+app.use(express.static("public"));
+
+// Use Modular Routes
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 
-// ✅ Default Route
+// Default Route
 app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
 
-// ❌ Global Error Handling
-app.use((err, req, res, next) => {
-    console.error("❌ Server Error:", err);
-    res.status(err.statusCode || 500).json({ error: err.message || "Internal Server Error" });
+// Get a Single Product
+app.get("/api/products/:id", async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+    res.json(product);
+  } catch (err) {
+    console.error("❌ Error fetching product:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
-// 🌍 Start Server
+// Global Error Handling
+app.use((err, req, res, next) => {
+  console.error("❌ Server Error:", err);
+  res.status(500).json({ error: "Internal Server Error" });
+});
+
+// Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
