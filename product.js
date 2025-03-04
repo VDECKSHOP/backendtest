@@ -6,6 +6,7 @@ const productSchema = new mongoose.Schema({
   category: String,
   description: String,
   images: [String],
+  stock: { type: Number, required: true, default: 0 }, // ✅ Add stock field
 });
 
 const Product = mongoose.model("Product", productSchema);
