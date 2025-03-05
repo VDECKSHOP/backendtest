@@ -73,24 +73,57 @@ router.get("/:id", async (req, res) => {
 });
 
 /**
- * ✅ Update Product Stock
+ * ✅ Update Product Stock (Prevents Negative Stock)
  */
 router.put("/:id", async (req, res) => {
   try {
     const { stock } = req.body;
-    if (stock === undefined) {
-      return res.status(400).json({ error: "Stock value is required." });
+
+    if (stock === undefined || isNaN(stock) || stock < 0) {
+      return res.status(400).json({ error: "❌ Invalid stock value. Must be a non-negative number." });
     }
 
-    const product = await Product.findByIdAndUpdate(req.params.id, { stock: Number(stock) }, { new: true });
-    
+    const product = await Product.findByIdAndUpdate(
+      req.params.id, 
+      { stock: Number(stock) }, 
+      { new: true }
+    );
+
     if (!product) {
       return res.status(404).json({ error: "❌ Product not found" });
     }
 
     res.json({ message: "✅ Stock updated successfully!", product });
   } catch (error) {
-    res.status(500).json({ error: "❌ Server error" });
+    res.status(500).json({ error: "❌ Server error", details: error.message });
+  }
+});
+
+/**
+ * ✅ Reduce Stock When Product is Purchased
+ */
+router.post("/:id/buy", async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    if (!quantity || isNaN(quantity) || quantity <= 0) {
+      return res.status(400).json({ error: "❌ Invalid quantity." });
+    }
+
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ error: "❌ Product not found" });
+    }
+
+    if (product.stock < quantity) {
+      return res.status(400).json({ error: "❌ Not enough stock available." });
+    }
+
+    product.stock -= quantity;
+    await product.save();
+
+    res.json({ message: "✅ Purchase successful! Stock updated.", product });
+  } catch (error) {
+    res.status(500).json({ error: "❌ Server error", details: error.message });
   }
 });
 
