@@ -53,8 +53,9 @@ export const createOrder = async (req, res) => {
 // ✅ Deduct stock AFTER order is successfully saved
 for (const item of parsedItems) {
   try {
+    // ✅ Fetch product before updating stock
     const product = await Product.findById(item.productId);
-    
+
     if (!product) {
       console.error(`❌ Product not found in DB: ${item.productId}`);
       continue; // Skip this item if product doesn't exist
@@ -62,23 +63,25 @@ for (const item of parsedItems) {
 
     console.log(`🔄 Before Update: ${product.name} - Stock: ${product.stock}`);
 
-    const updatedProduct = await Product.findByIdAndUpdate(
-      item.productId,
-      { $inc: { stock: -item.quantity } },
-      { new: true } // ✅ Ensures the updated stock is returned
+    // ✅ Update stock in MongoDB
+    const updateResult = await Product.updateOne(
+      { _id: item.productId },
+      { $inc: { stock: -item.quantity } }
     );
 
-    if (!updatedProduct) {
-      console.error(`❌ Failed to update stock for Product ID: ${item.productId}`);
-    } else {
-      console.log(`✅ After Update: ${updatedProduct.name} - New Stock: ${updatedProduct.stock}`);
-    }
+    console.log(`🛠️ MongoDB Update Result:`, updateResult);
+
+    // ✅ Fetch product again to verify stock update
+    const updatedProduct = await Product.findById(item.productId);
+    console.log(`✅ After Update: ${updatedProduct.name} - New Stock: ${updatedProduct.stock}`);
+
   } catch (err) {
     console.error(`❌ Error updating stock for Product ID: ${item.productId}`, err);
   }
 }
 
 res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
+
 // ✅ Fetch a Single Order by ID
 export const getOrderById = async (req, res) => {
   try {

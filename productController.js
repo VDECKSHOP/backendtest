@@ -3,9 +3,9 @@ const Product = require("./Product");
 
 exports.uploadProduct = async (req, res) => {
   try {
-    const { name, price, category, description } = req.body;
-    if (!name || !price || !category || req.files.length === 0) {
-      return res.status(400).json({ error: "Please fill all fields and upload at least one image." });
+    const { name, price, category, description, stock } = req.body; // ✅ Include stock
+    if (!name || !price || !category || stock === undefined || req.files.length === 0) {
+      return res.status(400).json({ error: "Please fill all fields including stock and upload at least one image." });
     }
 
     // Upload each image to Cloudinary
@@ -16,16 +16,25 @@ exports.uploadProduct = async (req, res) => {
       })
     );
 
-    // Save product in MongoDB
-    const newProduct = new Product({ name, price, category, description, images: imageUrls });
-    await newProduct.save();
+    // ✅ Ensure stock is saved in MongoDB
+    const newProduct = new Product({ 
+      name, 
+      price, 
+      category, 
+      description, 
+      stock: Number(stock), // ✅ Convert stock to a number
+      images: imageUrls 
+    });
 
+    await newProduct.save();
     res.status(201).json({ message: "Product added successfully!", product: newProduct });
+
   } catch (error) {
     console.error("Error uploading product:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 
 exports.getProductById = async (req, res) => {
   try {
