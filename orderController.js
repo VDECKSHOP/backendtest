@@ -52,9 +52,12 @@ export const createOrder = async (req, res) => {
 
     // ✅ Deduct stock AFTER order is successfully saved
     for (const item of parsedItems) {
-      await Product.findByIdAndUpdate(item.productId, {
-        $inc: { stock: -item.quantity },
-      });
+      const updatedProduct = await Product.findByIdAndUpdate(
+        item.productId,
+        { $inc: { stock: -item.quantity } },
+        { new: true } // ✅ Ensures the updated stock is returned
+      );
+      console.log(`🔄 Updated Stock: ${updatedProduct.name} - New Stock: ${updatedProduct.stock}`);
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
@@ -63,6 +66,7 @@ export const createOrder = async (req, res) => {
     res.status(500).json({ error: "❌ Internal Server Error" });
   }
 };
+
 
 // ✅ Fetch a Single Order by ID
 export const getOrderById = async (req, res) => {
