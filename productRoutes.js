@@ -12,7 +12,7 @@ const upload = multer({ dest: "uploads/" });
 router.post("/", upload.array("images", 6), async (req, res) => {
   try {
     const { name, price, category, description, stock } = req.body;
-    
+
     if (!name || !price || !category || stock === undefined || req.files.length === 0) {
       return res.status(400).json({ error: "Please fill in all fields including stock and upload at least one image." });
     }
@@ -33,15 +33,15 @@ router.post("/", upload.array("images", 6), async (req, res) => {
       price,
       category,
       description,
-      stock: Number(stock), // Ensure stock is stored as a number
+      stock: Math.max(0, Number(stock)), // ✅ Ensure stock is a non-negative number
       images: imageUrls,
     });
 
     await newProduct.save();
-    res.status(201).json({ message: "Product added successfully!", product: newProduct });
+    res.status(201).json({ message: "✅ Product added successfully!", product: newProduct });
   } catch (error) {
-    console.error("Error uploading product:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("❌ Error uploading product:", error);
+    res.status(500).json({ error: "❌ Internal Server Error" });
   }
 });
 
@@ -50,7 +50,7 @@ router.post("/", upload.array("images", 6), async (req, res) => {
  */
 router.get("/", async (req, res) => {
   try {
-    const products = await Product.find({}, "name price category description stock images"); // ✅ Added stock
+    const products = await Product.find({}, "name price category description stock images");
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: "❌ Failed to fetch products" });
@@ -84,8 +84,8 @@ router.put("/:id", async (req, res) => {
     }
 
     const product = await Product.findByIdAndUpdate(
-      req.params.id, 
-      { stock: Number(stock) }, 
+      req.params.id,
+      { stock: Math.max(0, Number(stock)) }, // ✅ Prevents negative stock values
       { new: true }
     );
 
@@ -118,11 +118,13 @@ router.post("/:id/buy", async (req, res) => {
       return res.status(400).json({ error: "❌ Not enough stock available." });
     }
 
+    // ✅ Deduct stock from MongoDB
     product.stock -= quantity;
     await product.save();
 
     res.json({ message: "✅ Purchase successful! Stock updated.", product });
   } catch (error) {
+    console.error("❌ Error processing purchase:", error);
     res.status(500).json({ error: "❌ Server error", details: error.message });
   }
 });
@@ -146,7 +148,7 @@ router.delete("/:id", async (req, res) => {
             await cloudinary.uploader.destroy(publicId);
           }
         } catch (error) {
-          console.error("Error deleting image from Cloudinary:", error);
+          console.error("❌ Error deleting image from Cloudinary:", error);
         }
       })
     );
@@ -156,6 +158,7 @@ router.delete("/:id", async (req, res) => {
 
     res.json({ message: "✅ Product and images deleted successfully!" });
   } catch (error) {
+    console.error("❌ Error deleting product:", error);
     res.status(500).json({ error: "❌ Server error", details: error.message });
   }
 });
@@ -171,4 +174,3 @@ function extractPublicId(url) {
 
 // ✅ Export router as default
 export default router;
-
