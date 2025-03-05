@@ -50,24 +50,35 @@ export const createOrder = async (req, res) => {
 
     await newOrder.save();
 
-    // ✅ Deduct stock AFTER order is successfully saved
-    for (const item of parsedItems) {
-      const updatedProduct = await Product.findByIdAndUpdate(
-        item.productId,
-        { $inc: { stock: -item.quantity } },
-        { new: true } // ✅ Ensures the updated stock is returned
-      );
-      console.log(`🔄 Updated Stock: ${updatedProduct.name} - New Stock: ${updatedProduct.stock}`);
+// ✅ Deduct stock AFTER order is successfully saved
+for (const item of parsedItems) {
+  try {
+    const product = await Product.findById(item.productId);
+    
+    if (!product) {
+      console.error(`❌ Product not found in DB: ${item.productId}`);
+      continue; // Skip this item if product doesn't exist
     }
 
-    res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
-  } catch (error) {
-    console.error("❌ Order Submission Error:", error);
-    res.status(500).json({ error: "❌ Internal Server Error" });
+    console.log(`🔄 Before Update: ${product.name} - Stock: ${product.stock}`);
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      item.productId,
+      { $inc: { stock: -item.quantity } },
+      { new: true } // ✅ Ensures the updated stock is returned
+    );
+
+    if (!updatedProduct) {
+      console.error(`❌ Failed to update stock for Product ID: ${item.productId}`);
+    } else {
+      console.log(`✅ After Update: ${updatedProduct.name} - New Stock: ${updatedProduct.stock}`);
+    }
+  } catch (err) {
+    console.error(`❌ Error updating stock for Product ID: ${item.productId}`, err);
   }
-};
+}
 
-
+res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
 // ✅ Fetch a Single Order by ID
 export const getOrderById = async (req, res) => {
   try {
