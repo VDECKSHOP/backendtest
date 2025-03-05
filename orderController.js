@@ -53,32 +53,33 @@ export const createOrder = async (req, res) => {
 // ✅ Deduct stock AFTER order is successfully saved
 for (const item of parsedItems) {
   try {
-    // ✅ Fetch product before updating stock
-    const product = await Product.findById(item.productId);
+    // ✅ Fetch the product before updating stock
+    const product = await Product.findById(item._id); // 🔍 Ensure `_id` is used correctly
 
     if (!product) {
-      console.error(`❌ Product not found in DB: ${item.productId}`);
-      continue; // Skip this item if product doesn't exist
+      console.error(`❌ Product not found in DB: ${item._id}`);
+      continue; // Skip if the product doesn't exist
     }
 
     console.log(`🔄 Before Update: ${product.name} - Stock: ${product.stock}`);
 
-    // ✅ Update stock in MongoDB
+    // ✅ Perform the stock deduction
     const updateResult = await Product.updateOne(
-      { _id: item.productId },
+      { _id: item._id }, // Ensure correct `_id` is used
       { $inc: { stock: -item.quantity } }
     );
 
     console.log(`🛠️ MongoDB Update Result:`, updateResult);
 
     // ✅ Fetch product again to verify stock update
-    const updatedProduct = await Product.findById(item.productId);
+    const updatedProduct = await Product.findById(item._id);
     console.log(`✅ After Update: ${updatedProduct.name} - New Stock: ${updatedProduct.stock}`);
 
   } catch (err) {
-    console.error(`❌ Error updating stock for Product ID: ${item.productId}`, err);
+    console.error(`❌ Error updating stock for Product ID: ${item._id}`, err);
   }
 }
+
 
 res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
 
