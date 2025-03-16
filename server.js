@@ -122,6 +122,32 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
+// 🔥 Cancel Order and Restore Stock
+app.delete("/api/orders/:id", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: "❌ Order not found" });
+    }
+
+    // 🔥 Restore stock for each item in the order
+    for (const item of order.items) {
+      const product = await Product.findById(item.id);
+      if (product) {
+        product.stock += item.quantity; // ✅ Restore the deducted stock
+        await product.save();
+      }
+    }
+
+    // 🔥 Delete the order after restoring stock
+    await Order.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "✅ Order canceled and stock restored!" });
+  } catch (error) {
+    console.error("❌ Order Cancellation Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 // 🔥 Add Missing Route: Update Product Stock
 app.put("/api/products/:id/update-stock", async (req, res) => {
@@ -165,3 +191,4 @@ app.use((err, req, res, next) => {
 
 // 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+
