@@ -8,6 +8,7 @@ import fs from "fs";
 import productRoutes from "./productRoutes.js";
 import orderRoutes from "./orderRoutes.js";
 import Product from "./product.js"; // Ensure product.js uses ES module syntax
+import Order from "./order.js"; // Import Order model
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -51,7 +52,7 @@ app.use(express.static(path.join(process.cwd(), "public")));
 
 // 🚀 API Routes
 app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes); // ✅ Ensure this route is working
+app.use("/api/orders", orderRoutes);
 
 // ✅ Default Route
 app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
@@ -70,23 +71,39 @@ app.get("/api/products/:id", async (req, res) => {
   }
 });
 
-// 🔥 Add Route to Update Product Stock
-app.put("/api/products/:id/update-stock", async (req, res) => {
+// 🔥 Place Order and Update Stock
+app.post("/api/orders", async (req, res) => {
   try {
-    const { quantitySold } = req.body;
-    const product = await Product.findById(req.params.id);
+    const { fullname, gcash, address, items, total, paymentProof } = req.body;
 
-    if (!product) {
-      return res.status(404).json({ message: "❌ Product not found" });
+    if (!fullname || !gcash || !address || !items || !total || !paymentProof) {
+      return res.status(400).json({ message: "❌ All fields are required." });
     }
 
-    // 🔥 Reduce stock in database
-    product.stock = Math.max(0, product.stock - quantitySold);
-    await product.save();
+    // 🔥 Create new order
+    const newOrder = new Order({
+      fullname,
+      gcash,
+      address,
+      items: JSON.parse(items), // Ensure it's an array
+      total,
+      paymentProof,
+    });
 
-    res.json({ message: "✅ Stock updated successfully", stock: product.stock });
+    const savedOrder = await newOrder.save();
+
+    // 🔥 Reduce stock for each item in the order
+    for (const item of JSON.parse(items)) {
+      const product = await Product.findById(item.id);
+      if (product) {
+        product.stock = Math.max(0, product.stock - item.quantity);
+        await product.save();
+      }
+    }
+
+    res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
   } catch (error) {
-    console.error("❌ Error updating stock:", error);
+    console.error("❌ Order Placement Error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
