@@ -83,7 +83,7 @@ app.post("/api/orders", async (req, res) => {
     // 🔥 Parse items if they are sent as a JSON string
     const orderItems = typeof items === "string" ? JSON.parse(items) : items;
 
-    // 🔥 Check if any product stock is insufficient
+    // 🔥 Check stock availability BEFORE processing the order
     for (const item of orderItems) {
       const product = await Product.findById(item.id);
       if (!product) {
@@ -94,16 +94,7 @@ app.post("/api/orders", async (req, res) => {
       }
     }
 
-    // 🔥 Reduce stock for each item in the order
-    for (const item of orderItems) {
-      const product = await Product.findById(item.id);
-      if (product) {
-        product.stock = Math.max(0, product.stock - item.quantity);
-        await product.save();
-      }
-    }
-
-    // 🔥 Create new order
+    // 🔥 Create the order FIRST, before deducting stock
     const newOrder = new Order({
       fullname,
       gcash,
@@ -113,7 +104,16 @@ app.post("/api/orders", async (req, res) => {
       paymentProof,
     });
 
-    const savedOrder = await newOrder.save();
+    const savedOrder = await newOrder.save(); // ✅ Only if this succeeds, reduce stock
+
+    // 🔥 Now reduce stock for each item in the order
+    for (const item of orderItems) {
+      const product = await Product.findById(item.id);
+      if (product) {
+        product.stock = Math.max(0, product.stock - item.quantity);
+        await product.save();
+      }
+    }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
   } catch (error) {
@@ -121,6 +121,7 @@ app.post("/api/orders", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // 🔥 Add Missing Route: Update Product Stock
 app.put("/api/products/:id/update-stock", async (req, res) => {
