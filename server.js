@@ -70,6 +70,27 @@ app.get("/api/products/:id", async (req, res) => {
   }
 });
 
+// 🔥 Add Route to Update Product Stock
+app.put("/api/products/:id/update-stock", async (req, res) => {
+  try {
+    const { quantitySold } = req.body;
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ message: "❌ Product not found" });
+    }
+
+    // 🔥 Reduce stock in database
+    product.stock = Math.max(0, product.stock - quantitySold);
+    await product.save();
+
+    res.json({ message: "✅ Stock updated successfully", stock: product.stock });
+  } catch (error) {
+    console.error("❌ Error updating stock:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // 📸 Upload Image Route (For Local Storage)
 app.post("/api/upload", upload.single("image"), (req, res) => {
   if (!req.file) {
