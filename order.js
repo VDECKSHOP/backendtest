@@ -5,7 +5,7 @@ const orderSchema = new mongoose.Schema({
     gcash: { type: String, required: true },
     address: { type: String, required: true },
     items: [{ 
-        id: { type: String, required: true }, // ✅ Store product ID as a string
+        id: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true }, // ✅ Use ObjectId for product reference
         name: String, 
         quantity: Number, 
         price: Number 
