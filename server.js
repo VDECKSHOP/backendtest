@@ -85,34 +85,26 @@ app.post("/api/orders", async (req, res) => {
 
     console.log("📦 Received Order Items:", orderItems);
 
-    // 🔍 Validate and attach product IDs
-    const updatedItems = [];
+    // 🔍 Validate stock availability
     for (const item of orderItems) {
-      const product = await Product.findOne({ name: item.name }); // ✅ Find product by name
+      const product = await Product.findById(item.id); // ✅ Use _id for accuracy
       if (!product) {
         console.log(`❌ Product not found: ${item.name}`);
         return res.status(404).json({ message: `❌ Product not found: ${item.name}` });
       }
 
-      console.log(`🛒 Before Order - ${item.name}: Stock = ${product.stock}`);
+      console.log(`🛒 Before Order - ${product.name}: Stock = ${product.stock}`);
       if (product.stock < item.quantity) {
-        return res.status(400).json({ message: `❌ Not enough stock for ${item.name}. Available: ${product.stock}` });
+        return res.status(400).json({ message: `❌ Not enough stock for ${product.name}. Available: ${product.stock}` });
       }
-
-      updatedItems.push({
-        id: product._id, // ✅ Correctly assign product ID
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price
-      });
     }
 
-    // 🔥 Save Order with Correct Product IDs
+    // 🔥 Save Order
     const newOrder = new Order({
       fullname,
       gcash,
       address,
-      items: updatedItems, // ✅ Now items have IDs
+      items: orderItems, // ✅ Now items have IDs
       total,
       paymentProof,
     });
@@ -121,18 +113,17 @@ app.post("/api/orders", async (req, res) => {
     console.log("✅ Order Saved:", savedOrder);
 
     // 🔥 Deduct Stock
-   for (const item of updatedItems) {
-  const product = await Product.findOne({ name: item.name }); // 🔥 Find product by name
-  if (product) {
-    console.log(`🔻 Reducing stock for ${product.name} - Old Stock: ${product.stock}`);
-    product.stock = Math.max(0, product.stock - item.quantity);
-    await product.save();
-    console.log(`📉 Updated Stock for ${product.name}: ${product.stock}`);
-  } else {
-    console.log(`❌ Product not found: ${item.name}`);
-  }
-}
-
+    for (const item of orderItems) {
+      const product = await Product.findById(item.id); // ✅ Use _id for accuracy
+      if (product) {
+        console.log(`🔻 Reducing stock for ${product.name} - Old Stock: ${product.stock}`);
+        product.stock = Math.max(0, product.stock - item.quantity);
+        await product.save();
+        console.log(`📉 Updated Stock for ${product.name}: ${product.stock}`);
+      } else {
+        console.log(`❌ Product not found: ${item.name}`);
+      }
+    }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
   } catch (error) {
@@ -140,7 +131,6 @@ app.post("/api/orders", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
-
 
 // 📸 Upload Image Route (For Local Storage)
 app.post("/api/upload", upload.single("image"), (req, res) => {
