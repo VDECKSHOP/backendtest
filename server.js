@@ -80,7 +80,7 @@ app.post("/api/orders", async (req, res) => {
       return res.status(400).json({ message: "❌ All fields are required." });
     }
 
-    // 🔥 Parse items if they are sent as a JSON string
+    // 🔥 Parse items if sent as a JSON string
     const orderItems = typeof items === "string" ? JSON.parse(items) : items;
 
     console.log("📦 Received Order Items:", orderItems); // ✅ Debugging
@@ -92,11 +92,11 @@ app.post("/api/orders", async (req, res) => {
         console.log(`❌ Product not found: ${item.id}`);
         return res.status(404).json({ message: `❌ Product not found: ${item.name}` });
       }
+      console.log(`🛒 Before Order - ${item.name}: Stock = ${product.stock}`);
       if (product.stock < item.quantity) {
         console.log(`❌ Not enough stock for ${item.name}. Available: ${product.stock}`);
         return res.status(400).json({ message: `❌ Not enough stock for ${item.name}. Available: ${product.stock}` });
       }
-      console.log(`🔎 Stock Before Deduction - ${product.name}: ${product.stock}`);
     }
 
     // 🔥 Create the order FIRST, before deducting stock
@@ -119,7 +119,7 @@ app.post("/api/orders", async (req, res) => {
         { new: true } // ✅ Return updated product
       );
 
-      console.log(`📉 Updated Stock for ${item.name}: ${updatedProduct.stock}`);
+      console.log(`📉 After Order - ${item.name}: Stock = ${updatedProduct.stock}`);
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
