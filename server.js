@@ -113,13 +113,15 @@ app.post("/api/orders", async (req, res) => {
 
     // 🔥 Deduct stock for each item in the order
     for (const item of orderItems) {
-      const updatedProduct = await Product.findByIdAndUpdate(
-        item.id,
-        { $inc: { stock: -item.quantity } }, // ✅ Deduct stock
-        { new: true } // ✅ Return updated product
-      );
-
-      console.log(`📉 After Order - ${item.name}: Stock = ${updatedProduct.stock}`);
+      const product = await Product.findById(item.id);
+      if (product) {
+        console.log(`🔻 Reducing stock for ${product.name} - Old Stock: ${product.stock}`);
+        product.stock = Math.max(0, product.stock - item.quantity); // ✅ Prevent negative stock
+        await product.save(); // ✅ Ensure update is saved
+        console.log(`📉 Updated Stock for ${product.name}: ${product.stock}`);
+      } else {
+        console.log(`❌ Product ID ${item.id} not found during stock update.`);
+      }
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
@@ -128,8 +130,6 @@ app.post("/api/orders", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
-
-
 
 // 📸 Upload Image Route (For Local Storage)
 app.post("/api/upload", upload.single("image"), (req, res) => {
