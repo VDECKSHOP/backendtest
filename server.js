@@ -149,6 +149,27 @@ app.delete("/api/orders/:id", async (req, res) => {
   }
 });
 
+// 🔥 Restore Stock When Item is Removed from Cart
+app.put("/api/products/:id/restore-stock", async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ message: "❌ Product not found" });
+    }
+
+    // 🔥 Restore stock
+    product.stock += quantity;
+    await product.save();
+
+    res.json({ message: "✅ Stock restored successfully!", stock: product.stock });
+  } catch (error) {
+    console.error("❌ Error restoring stock:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // 🔥 Add Missing Route: Update Product Stock
 app.put("/api/products/:id/update-stock", async (req, res) => {
   try {
@@ -188,27 +209,6 @@ app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err);
   res.status(err.statusCode || 500).json({ error: err.message || "Internal Server Error" });
 });
-// 🔥 Restore Stock When Item is Removed from Cart
-app.put("/api/products/:id/restore-stock", async (req, res) => {
-  try {
-    const { quantity } = req.body;
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({ message: "❌ Product not found" });
-    }
-
-    // 🔥 Restore stock
-    product.stock += quantity;
-    await product.save();
-
-    res.json({ message: "✅ Stock restored successfully!", stock: product.stock });
-  } catch (error) {
-    console.error("❌ Error restoring stock:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
 
 // 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
