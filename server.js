@@ -83,7 +83,7 @@ app.post("/api/orders", async (req, res) => {
     // 🔥 Parse items if they are sent as a JSON string
     const orderItems = typeof items === "string" ? JSON.parse(items) : items;
 
-    console.log("📦 Received Order Items:", orderItems); // ✅ Debugging
+    console.log("📦 Received Order Items:", orderItems);
 
     // 🔍 Ensure stock exists before placing order
     for (const item of orderItems) {
@@ -98,7 +98,7 @@ app.post("/api/orders", async (req, res) => {
       }
     }
 
-    // 🔥 Create the order FIRST, before deducting stock
+    // 🔥 Create the order FIRST
     const newOrder = new Order({
       fullname,
       gcash,
@@ -108,49 +108,26 @@ app.post("/api/orders", async (req, res) => {
       paymentProof,
     });
 
-    const savedOrder = await newOrder.save(); // ✅ Only if this succeeds, reduce stock
+    const savedOrder = await newOrder.save();
 
     // 🔥 Deduct stock for each item in the order
     for (const item of orderItems) {
       const updatedProduct = await Product.findByIdAndUpdate(
-        item.id,
+        mongoose.Types.ObjectId(item.id), // ✅ Ensure correct ObjectId format
         { $inc: { stock: -item.quantity } }, // ✅ Deduct stock
-        { new: true } // ✅ Return updated product
+        { new: true }
       );
 
-      console.log(`📉 Updated Stock for ${item.name}:`, updatedProduct.stock);
+      if (!updatedProduct) {
+        console.log(`❌ Failed to update stock for product: ${item.id}`);
+      } else {
+        console.log(`📉 Updated Stock for ${item.name}:`, updatedProduct.stock);
+      }
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
   } catch (error) {
     console.error("❌ Order Placement Error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// 🔥 Cancel Order and Restore Stock
-app.delete("/api/orders/:id", async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ message: "❌ Order not found" });
-    }
-
-    // 🔥 Restore stock for each item in the order
-    for (const item of order.items) {
-      const product = await Product.findById(item.id);
-      if (product) {
-        product.stock += item.quantity; // ✅ Restore the deducted stock
-        await product.save();
-      }
-    }
-
-    // 🔥 Delete the order after restoring stock
-    await Order.findByIdAndDelete(req.params.id);
-
-    res.json({ message: "✅ Order canceled and stock restored!" });
-  } catch (error) {
-    console.error("❌ Order Cancellation Error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
@@ -163,7 +140,7 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
   res.json({ imageUrl: `/uploads/${req.file.filename}` });
 });
 
-// ❌ Handle Undefined Routes (Prevents 404 on `/api/orders`)
+// ❌ Handle Undefined Routes
 app.use((req, res) => {
   res.status(404).json({ error: "❌ Route Not Found" });
 });
@@ -176,4 +153,3 @@ app.use((err, req, res, next) => {
 
 // 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-
