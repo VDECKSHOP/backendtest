@@ -80,20 +80,22 @@ app.post("/api/orders", async (req, res) => {
       return res.status(400).json({ message: "❌ All fields are required." });
     }
 
-    // 🔥 Create new order
-    const newOrder = new Order({
-      fullname,
-      gcash,
-      address,
-      items: JSON.parse(items), // Ensure it's an array
-      total,
-      paymentProof,
-    });
+    // 🔥 Parse items if they are sent as a JSON string
+    const orderItems = typeof items === "string" ? JSON.parse(items) : items;
 
-    const savedOrder = await newOrder.save();
+    // 🔥 Check if any product stock is insufficient
+    for (const item of orderItems) {
+      const product = await Product.findById(item.id);
+      if (!product) {
+        return res.status(404).json({ message: `❌ Product not found: ${item.name}` });
+      }
+      if (product.stock < item.quantity) {
+        return res.status(400).json({ message: `❌ Not enough stock for ${item.name}. Available: ${product.stock}` });
+      }
+    }
 
     // 🔥 Reduce stock for each item in the order
-    for (const item of JSON.parse(items)) {
+    for (const item of orderItems) {
       const product = await Product.findById(item.id);
       if (product) {
         product.stock = Math.max(0, product.stock - item.quantity);
@@ -101,12 +103,25 @@ app.post("/api/orders", async (req, res) => {
       }
     }
 
+    // 🔥 Create new order
+    const newOrder = new Order({
+      fullname,
+      gcash,
+      address,
+      items: orderItems,
+      total,
+      paymentProof,
+    });
+
+    const savedOrder = await newOrder.save();
+
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
   } catch (error) {
     console.error("❌ Order Placement Error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // 📸 Upload Image Route (For Local Storage)
 app.post("/api/upload", upload.single("image"), (req, res) => {
