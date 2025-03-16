@@ -71,7 +71,6 @@ app.get("/api/products/:id", async (req, res) => {
   }
 });
 
-
 // 🔥 Place Order and Deduct Stock
 app.post("/api/orders", async (req, res) => {
   try {
@@ -119,7 +118,7 @@ app.post("/api/orders", async (req, res) => {
         { new: true } // ✅ Return updated product
       );
 
-      console.log(`📉 Updated Stock for ${item.name}:`, updatedProduct);
+      console.log(`📉 Updated Stock for ${item.name}:`, updatedProduct.stock);
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
@@ -128,7 +127,6 @@ app.post("/api/orders", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
-
 
 // 🔥 Cancel Order and Restore Stock
 app.delete("/api/orders/:id", async (req, res) => {
@@ -178,3 +176,4 @@ app.use((err, req, res, next) => {
 
 // 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+
