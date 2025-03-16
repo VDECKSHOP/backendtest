@@ -96,6 +96,7 @@ app.post("/api/orders", async (req, res) => {
         console.log(`❌ Not enough stock for ${item.name}. Available: ${product.stock}`);
         return res.status(400).json({ message: `❌ Not enough stock for ${item.name}. Available: ${product.stock}` });
       }
+      console.log(`🔎 Stock Before Deduction - ${product.name}: ${product.stock}`);
     }
 
     // 🔥 Create the order FIRST, before deducting stock
@@ -118,7 +119,7 @@ app.post("/api/orders", async (req, res) => {
         { new: true } // ✅ Return updated product
       );
 
-      console.log(`📉 Updated Stock for ${item.name}:`, updatedProduct.stock);
+      console.log(`📉 Updated Stock for ${item.name}: ${updatedProduct.stock}`);
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
@@ -127,6 +128,7 @@ app.post("/api/orders", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 
 // 📸 Upload Image Route (For Local Storage)
