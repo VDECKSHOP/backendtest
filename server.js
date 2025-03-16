@@ -71,6 +71,7 @@ app.get("/api/products/:id", async (req, res) => {
   }
 });
 
+
 // 🔥 Place Order and Deduct Stock
 app.post("/api/orders", async (req, res) => {
   try {
@@ -85,15 +86,15 @@ app.post("/api/orders", async (req, res) => {
 
     console.log("📦 Received Order Items:", orderItems); // ✅ Debugging
 
-    // 🔥 Check stock availability BEFORE processing the order
+    // 🔍 Ensure stock exists before placing order
     for (const item of orderItems) {
       const product = await Product.findById(item.id);
-      console.log("🔎 Checking Product:", product); // ✅ Debugging
-
       if (!product) {
+        console.log(`❌ Product not found: ${item.id}`);
         return res.status(404).json({ message: `❌ Product not found: ${item.name}` });
       }
       if (product.stock < item.quantity) {
+        console.log(`❌ Not enough stock for ${item.name}. Available: ${product.stock}`);
         return res.status(400).json({ message: `❌ Not enough stock for ${item.name}. Available: ${product.stock}` });
       }
     }
@@ -110,15 +111,15 @@ app.post("/api/orders", async (req, res) => {
 
     const savedOrder = await newOrder.save(); // ✅ Only if this succeeds, reduce stock
 
-    // 🔥 Now reduce stock for each item in the order
+    // 🔥 Deduct stock for each item in the order
     for (const item of orderItems) {
       const updatedProduct = await Product.findByIdAndUpdate(
         item.id,
         { $inc: { stock: -item.quantity } }, // ✅ Deduct stock
-        { new: true } // ✅ Return updated document
+        { new: true } // ✅ Return updated product
       );
 
-      console.log("📉 Stock Updated:", updatedProduct); // ✅ Debugging
+      console.log(`📉 Updated Stock for ${item.name}:`, updatedProduct);
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
@@ -127,6 +128,7 @@ app.post("/api/orders", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // 🔥 Cancel Order and Restore Stock
 app.delete("/api/orders/:id", async (req, res) => {
