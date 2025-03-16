@@ -83,7 +83,7 @@ app.post("/api/orders", async (req, res) => {
     // 🔥 Parse items if they are sent as a JSON string
     const orderItems = typeof items === "string" ? JSON.parse(items) : items;
 
-    console.log("📦 Received Order Items:", orderItems);
+    console.log("📦 Received Order Items:", orderItems); // ✅ Debugging
 
     // 🔍 Ensure stock exists before placing order
     for (const item of orderItems) {
@@ -98,7 +98,7 @@ app.post("/api/orders", async (req, res) => {
       }
     }
 
-    // 🔥 Create the order FIRST
+    // 🔥 Create the order FIRST, before deducting stock
     const newOrder = new Order({
       fullname,
       gcash,
@@ -108,21 +108,17 @@ app.post("/api/orders", async (req, res) => {
       paymentProof,
     });
 
-    const savedOrder = await newOrder.save();
+    const savedOrder = await newOrder.save(); // ✅ Only if this succeeds, reduce stock
 
     // 🔥 Deduct stock for each item in the order
     for (const item of orderItems) {
       const updatedProduct = await Product.findByIdAndUpdate(
-        mongoose.Types.ObjectId(item.id), // ✅ Ensure correct ObjectId format
+        item.id,
         { $inc: { stock: -item.quantity } }, // ✅ Deduct stock
-        { new: true }
+        { new: true } // ✅ Return updated product
       );
 
-      if (!updatedProduct) {
-        console.log(`❌ Failed to update stock for product: ${item.id}`);
-      } else {
-        console.log(`📉 Updated Stock for ${item.name}:`, updatedProduct.stock);
-      }
+      console.log(`📉 Updated Stock for ${item.name}:`, updatedProduct.stock);
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
@@ -131,6 +127,7 @@ app.post("/api/orders", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // 📸 Upload Image Route (For Local Storage)
 app.post("/api/upload", upload.single("image"), (req, res) => {
