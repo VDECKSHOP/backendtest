@@ -71,7 +71,7 @@ app.get("/api/products/:id", async (req, res) => {
   }
 });
 
-// 🔥 Place Order and Update Stock
+// 🔥 Place Order and Deduct Stock
 app.post("/api/orders", async (req, res) => {
   try {
     const { fullname, gcash, address, items, total, paymentProof } = req.body;
@@ -108,11 +108,9 @@ app.post("/api/orders", async (req, res) => {
 
     // 🔥 Now reduce stock for each item in the order
     for (const item of orderItems) {
-      const product = await Product.findById(item.id);
-      if (product) {
-        product.stock = Math.max(0, product.stock - item.quantity);
-        await product.save();
-      }
+      await Product.findByIdAndUpdate(item.id, { 
+        $inc: { stock: -item.quantity } // ✅ Deduct stock directly
+      });
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
