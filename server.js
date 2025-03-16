@@ -113,14 +113,16 @@ app.post("/api/orders", async (req, res) => {
 
     // 🔥 Deduct stock for each item in the order
     for (const item of orderItems) {
-      const product = await Product.findById(item.id);
-      if (product) {
-        console.log(`🔻 Reducing stock for ${product.name} - Old Stock: ${product.stock}`);
-        product.stock = Math.max(0, product.stock - item.quantity); // ✅ Prevent negative stock
-        await product.save(); // ✅ Ensure update is saved
-        console.log(`📉 Updated Stock for ${product.name}: ${product.stock}`);
+      const updatedProduct = await Product.findByIdAndUpdate(
+        item.id,
+        { $inc: { stock: -item.quantity } }, // ✅ Deduct stock (atomic update)
+        { new: true }
+      );
+
+      if (updatedProduct) {
+        console.log(`📉 Stock updated for ${updatedProduct.name}: ${updatedProduct.stock}`);
       } else {
-        console.log(`❌ Product ID ${item.id} not found during stock update.`);
+        console.log(`❌ Failed to update stock for Product ID: ${item.id}`);
       }
     }
 
