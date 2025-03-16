@@ -121,16 +121,18 @@ app.post("/api/orders", async (req, res) => {
     console.log("✅ Order Saved:", savedOrder);
 
     // 🔥 Deduct Stock
-    for (const item of updatedItems) {
-      const product = await Product.findById(item.id);
-      if (product) {
-        product.stock = Math.max(0, product.stock - item.quantity);
-        await product.save();
-        console.log(`📉 Updated Stock for ${product.name}: ${product.stock}`);
-      } else {
-        console.log(`❌ Product ID ${item.id} not found.`);
-      }
-    }
+   for (const item of updatedItems) {
+  const product = await Product.findOne({ name: item.name }); // 🔥 Find product by name
+  if (product) {
+    console.log(`🔻 Reducing stock for ${product.name} - Old Stock: ${product.stock}`);
+    product.stock = Math.max(0, product.stock - item.quantity);
+    await product.save();
+    console.log(`📉 Updated Stock for ${product.name}: ${product.stock}`);
+  } else {
+    console.log(`❌ Product not found: ${item.name}`);
+  }
+}
+
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
   } catch (error) {
