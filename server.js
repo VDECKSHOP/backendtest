@@ -111,20 +111,20 @@ app.post("/api/orders", async (req, res) => {
 
     const savedOrder = await newOrder.save(); // ✅ Only if this succeeds, reduce stock
 
-    // 🔥 Deduct stock for each item in the order
-    for (const item of orderItems) {
-      const updatedProduct = await Product.findByIdAndUpdate(
-        item.id,
-        { $inc: { stock: -item.quantity } }, // ✅ Deduct stock (atomic update)
-        { new: true }
-      );
+  // 🔥 Deduct stock for each item in the order
+for (const item of orderItems) {
+    console.log(`🔍 Searching for Product ID: ${item.id}`); // Debugging
 
-      if (updatedProduct) {
-        console.log(`📉 Stock updated for ${updatedProduct.name}: ${updatedProduct.stock}`);
-      } else {
-        console.log(`❌ Failed to update stock for Product ID: ${item.id}`);
-      }
+    const product = await Product.findById(item.id);
+    if (product) {
+        console.log(`🔻 Reducing stock for ${product.name} - Old Stock: ${product.stock}`);
+        product.stock = Math.max(0, product.stock - item.quantity);
+        await product.save();
+        console.log(`📉 Updated Stock for ${product.name}: ${product.stock}`);
+    } else {
+        console.log(`❌ Product ID ${item.id} not found during stock update.`);
     }
+}
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
   } catch (error) {

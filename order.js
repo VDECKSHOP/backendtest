@@ -5,7 +5,7 @@ const orderSchema = new mongoose.Schema({
     gcash: { type: String, required: true },
     address: { type: String, required: true },
     items: [{ 
-        id: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true }, // ✅ Use ObjectId for product reference
+        id: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true }, // ✅ Fix: Store product ID
         name: String, 
         quantity: Number, 
         price: Number 
@@ -14,6 +14,7 @@ const orderSchema = new mongoose.Schema({
     paymentProof: { type: String, required: true },
     status: { type: String, default: "Pending" },
 }, { timestamps: true });
+
 
 // ✅ Prevent OverwriteModelError
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
