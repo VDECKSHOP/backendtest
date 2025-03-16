@@ -83,9 +83,13 @@ app.post("/api/orders", async (req, res) => {
     // 🔥 Parse items if they are sent as a JSON string
     const orderItems = typeof items === "string" ? JSON.parse(items) : items;
 
+    console.log("📦 Received Order Items:", orderItems); // ✅ Debugging
+
     // 🔥 Check stock availability BEFORE processing the order
     for (const item of orderItems) {
       const product = await Product.findById(item.id);
+      console.log("🔎 Checking Product:", product); // ✅ Debugging
+
       if (!product) {
         return res.status(404).json({ message: `❌ Product not found: ${item.name}` });
       }
@@ -108,9 +112,13 @@ app.post("/api/orders", async (req, res) => {
 
     // 🔥 Now reduce stock for each item in the order
     for (const item of orderItems) {
-      await Product.findByIdAndUpdate(item.id, { 
-        $inc: { stock: -item.quantity } // ✅ Deduct stock directly
-      });
+      const updatedProduct = await Product.findByIdAndUpdate(
+        item.id,
+        { $inc: { stock: -item.quantity } }, // ✅ Deduct stock
+        { new: true } // ✅ Return updated document
+      );
+
+      console.log("📉 Stock Updated:", updatedProduct); // ✅ Debugging
     }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
@@ -165,29 +173,6 @@ app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err);
   res.status(err.statusCode || 500).json({ error: err.message || "Internal Server Error" });
 });
-// 🔥 Update Product Stock When Order is Placed
-app.put("/api/products/:id/update-stock", async (req, res) => {
-  try {
-    const { quantitySold } = req.body;
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({ message: "❌ Product not found" });
-    }
-
-    // 🔥 Reduce stock in database
-    product.stock = Math.max(0, product.stock - quantitySold);
-    await product.save();
-
-    res.json({ message: "✅ Stock updated successfully", stock: product.stock });
-  } catch (error) {
-    console.error("❌ Error updating stock:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
 
 // 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-
-
