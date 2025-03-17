@@ -7,8 +7,8 @@ import path from "path";
 import fs from "fs";
 import productRoutes from "./productRoutes.js";
 import orderRoutes from "./orderRoutes.js";
-import Product from "./product.js"; // Ensure product.js uses ES module syntax
-import Order from "./order.js"; // Import Order model
+import Product from "./product.js";
+import Order from "./order.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -21,7 +21,7 @@ async function connectDB() {
     console.log("✅ Connected to MongoDB");
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err);
-    setTimeout(connectDB, 5000); // Retry in 5 seconds
+    setTimeout(connectDB, 5000);
   }
 }
 connectDB();
@@ -31,7 +31,7 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// 📂 Multer Storage Setup (For Local File Uploads)
+// 📂 Multer Storage Setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(process.cwd(), "uploads");
@@ -75,55 +75,28 @@ app.get("/api/products/:id", async (req, res) => {
 app.post("/api/orders", async (req, res) => {
   try {
     const { fullname, gcash, address, items, total, paymentProof } = req.body;
-
     if (!fullname || !gcash || !address || !items || !total || !paymentProof) {
       return res.status(400).json({ message: "❌ All fields are required." });
     }
-
-    // 🔥 Parse items if sent as a JSON string
+    
     const orderItems = typeof items === "string" ? JSON.parse(items) : items;
-
     console.log("📦 Received Order Items:", orderItems);
 
-    // 🔍 Validate stock availability
-    for (const item of orderItems) {
-      const product = await Product.findById(item.id); // ✅ Use _id for accuracy
-      if (!product) {
-        console.log(`❌ Product not found: ${item.name}`);
-        return res.status(404).json({ message: `❌ Product not found: ${item.name}` });
+    // Validate and Deduct Stock in One Transaction
+    const bulkOps = orderItems.map(item => ({
+      updateOne: {
+        filter: { _id: item.id },
+        update: { $inc: { stock: -item.quantity } }
       }
+    }));
 
-      console.log(`🛒 Before Order - ${product.name}: Stock = ${product.stock}`);
-      if (product.stock < item.quantity) {
-        return res.status(400).json({ message: `❌ Not enough stock for ${product.name}. Available: ${product.stock}` });
-      }
-    }
-
-    // 🔥 Save Order
-    const newOrder = new Order({
-      fullname,
-      gcash,
-      address,
-      items: orderItems, // ✅ Now items have IDs
-      total,
-      paymentProof,
-    });
-
+    const updatedProducts = await Product.bulkWrite(bulkOps);
+    console.log("📉 Stock Updated for Products:", updatedProducts);
+    
+    // Save Order
+    const newOrder = new Order({ fullname, gcash, address, items: orderItems, total, paymentProof });
     const savedOrder = await newOrder.save();
     console.log("✅ Order Saved:", savedOrder);
-
-    // 🔥 Deduct Stock
-    for (const item of orderItems) {
-      const product = await Product.findById(item.id); // ✅ Use _id for accuracy
-      if (product) {
-        console.log(`🔻 Reducing stock for ${product.name} - Old Stock: ${product.stock}`);
-        product.stock = Math.max(0, product.stock - item.quantity);
-        await product.save();
-        console.log(`📉 Updated Stock for ${product.name}: ${product.stock}`);
-      } else {
-        console.log(`❌ Product not found: ${item.name}`);
-      }
-    }
 
     res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
   } catch (error) {
@@ -132,7 +105,7 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
-// 📸 Upload Image Route (For Local Storage)
+// 📸 Upload Image Route
 app.post("/api/upload", upload.single("image"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
