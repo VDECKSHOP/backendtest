@@ -14,7 +14,7 @@ router.post("/", upload.array("images", 6), async (req, res) => {
     const { name, price, category, description, stock } = req.body;
 
     if (!name || !price || !category || stock === undefined || req.files.length === 0) {
-      return res.status(400).json({ error: "Please fill in all fields including stock and upload at least one image." });
+      return res.status(400).json({ error: "❌ Please fill in all fields including stock and upload at least one image." });
     }
 
     // Upload images to Cloudinary
@@ -73,38 +73,70 @@ router.get("/:id", async (req, res) => {
 });
 
 /**
- * ✅ Update Product Stock (Renamed from PUT /:id to PATCH /:id/update-stock)
+ * ✅ Update Product Stock (PATCH /:id/update-stock)
  */
 router.patch("/:id/update-stock", async (req, res) => {
-    try {
-        const { quantity } = req.body; // ✅ Ensure this matches frontend request
+  try {
+    const { quantity } = req.body;
 
-        if (!quantity || quantity <= 0) {
-            return res.status(400).json({ error: "❌ Invalid quantity" });
-        }
-
-        const product = await Product.findById(req.params.id);
-        if (!product) {
-            return res.status(404).json({ error: "❌ Product not found" });
-        }
-
-        if (product.stock < quantity) {
-            return res.status(400).json({ error: "❌ Not enough stock available" });
-        }
-
-        product.stock -= quantity;
-        await product.save();
-
-        res.json({ message: "✅ Stock updated successfully", stock: product.stock });
-    } catch (error) {
-        console.error("❌ Error updating stock:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+    if (!quantity || quantity <= 0) {
+      return res.status(400).json({ error: "❌ Invalid quantity" });
     }
+
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ error: "❌ Product not found" });
+    }
+
+    if (product.stock < quantity) {
+      return res.status(400).json({ error: "❌ Not enough stock available" });
+    }
+
+    product.stock -= quantity;
+    await product.save();
+
+    res.json({ message: "✅ Stock updated successfully!", stock: product.stock });
+  } catch (error) {
+    console.error("❌ Error updating stock:", error);
+    res.status(500).json({ error: "❌ Internal Server Error" });
+  }
 });
 
+/**
+ * ✅ Update Product Details (PUT /:id)
+ */
+router.put("/:id", upload.single("image"), async (req, res) => {
+  try {
+    const { name, price, stock, category, description } = req.body;
+
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ error: "❌ Product not found" });
+    }
+
+    product.name = name || product.name;
+    product.price = price || product.price;
+    product.stock = stock || product.stock;
+    product.category = category || product.category;
+    product.description = description || product.description;
+
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: process.env.CLOUDINARY_FOLDER,
+      });
+      product.images = [result.secure_url];
+    }
+
+    await product.save();
+    res.json({ message: "✅ Product updated successfully!", product });
+  } catch (error) {
+    console.error("❌ Error updating product:", error);
+    res.status(500).json({ error: "❌ Internal Server Error" });
+  }
+});
 
 /**
- * ✅ Reduce Stock When Product is Purchased
+ * ✅ Reduce Stock When Product is Purchased (POST /:id/buy)
  */
 router.post("/:id/buy", async (req, res) => {
   try {
@@ -122,7 +154,6 @@ router.post("/:id/buy", async (req, res) => {
       return res.status(400).json({ error: "❌ Not enough stock available." });
     }
 
-    // ✅ Deduct stock from MongoDB
     product.stock -= quantity;
     await product.save();
 
@@ -134,7 +165,7 @@ router.post("/:id/buy", async (req, res) => {
 });
 
 /**
- * ✅ DELETE a Product by ID (Now Deletes Images from Cloudinary)
+ * ✅ DELETE a Product by ID (Deletes Images from Cloudinary)
  */
 router.delete("/:id", async (req, res) => {
   try {
@@ -143,7 +174,6 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ error: "❌ Product not found." });
     }
 
-    // Delete images from Cloudinary
     await Promise.all(
       product.images.map(async (imageUrl) => {
         try {
@@ -157,7 +187,6 @@ router.delete("/:id", async (req, res) => {
       })
     );
 
-    // Delete product from database
     await Product.findByIdAndDelete(req.params.id);
 
     res.json({ message: "✅ Product and images deleted successfully!" });
