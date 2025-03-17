@@ -76,28 +76,32 @@ router.get("/:id", async (req, res) => {
  * ✅ Update Product Stock (Renamed from PUT /:id to PATCH /:id/update-stock)
  */
 router.patch("/:id/update-stock", async (req, res) => {
-  try {
-    const { stock } = req.body;
+    try {
+        const { quantity } = req.body; // ✅ Ensure this matches frontend request
 
-    if (stock === undefined || isNaN(stock) || stock < 0) {
-      return res.status(400).json({ error: "❌ Invalid stock value. Must be a non-negative number." });
+        if (!quantity || quantity <= 0) {
+            return res.status(400).json({ error: "❌ Invalid quantity" });
+        }
+
+        const product = await Product.findById(req.params.id);
+        if (!product) {
+            return res.status(404).json({ error: "❌ Product not found" });
+        }
+
+        if (product.stock < quantity) {
+            return res.status(400).json({ error: "❌ Not enough stock available" });
+        }
+
+        product.stock -= quantity;
+        await product.save();
+
+        res.json({ message: "✅ Stock updated successfully", stock: product.stock });
+    } catch (error) {
+        console.error("❌ Error updating stock:", error);
+        res.status(500).json({ error: "Internal Server Error" });
     }
-
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { stock: Math.max(0, Number(stock)) }, // ✅ Prevents negative stock values
-      { new: true }
-    );
-
-    if (!product) {
-      return res.status(404).json({ error: "❌ Product not found" });
-    }
-
-    res.json({ message: "✅ Stock updated successfully!", product });
-  } catch (error) {
-    res.status(500).json({ error: "❌ Server error", details: error.message });
-  }
 });
+
 
 /**
  * ✅ Reduce Stock When Product is Purchased
