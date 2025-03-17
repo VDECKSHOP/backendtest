@@ -73,9 +73,9 @@ router.get("/:id", async (req, res) => {
 });
 
 /**
- * ✅ Update Product Stock (Prevents Negative Stock)
+ * ✅ Update Product Stock (Renamed from PUT /:id to PATCH /:id/update-stock)
  */
-router.put("/:id", async (req, res) => {
+router.patch("/:id/update-stock", async (req, res) => {
   try {
     const { stock } = req.body;
 
@@ -174,3 +174,4 @@ function extractPublicId(url) {
 
 // ✅ Export router as default
 export default router;
+

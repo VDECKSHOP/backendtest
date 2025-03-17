@@ -7,8 +7,6 @@ import path from "path";
 import fs from "fs";
 import productRoutes from "./productRoutes.js";
 import orderRoutes from "./orderRoutes.js";
-import Product from "./product.js";
-import Order from "./order.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -57,20 +55,6 @@ app.use("/api/orders", orderRoutes);
 // ✅ Default Route
 app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
 
-// 🔍 Get a Single Product by ID
-app.get("/api/products/:id", async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ message: "❌ Product not found" });
-    }
-    res.json(product);
-  } catch (err) {
-    console.error("❌ Error fetching product:", err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
 // 🔥 Place Order and Deduct Stock
 app.post("/api/orders", async (req, res) => {
   try {
@@ -78,7 +62,7 @@ app.post("/api/orders", async (req, res) => {
     if (!fullname || !gcash || !address || !items || !total || !paymentProof) {
       return res.status(400).json({ message: "❌ All fields are required." });
     }
-    
+
     const orderItems = typeof items === "string" ? JSON.parse(items) : items;
     console.log("📦 Received Order Items:", orderItems);
 
@@ -92,7 +76,7 @@ app.post("/api/orders", async (req, res) => {
 
     const updatedProducts = await Product.bulkWrite(bulkOps);
     console.log("📉 Stock Updated for Products:", updatedProducts);
-    
+
     // Save Order
     const newOrder = new Order({ fullname, gcash, address, items: orderItems, total, paymentProof });
     const savedOrder = await newOrder.save();
