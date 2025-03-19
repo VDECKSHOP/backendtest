@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import productRoutes from "./productRoutes.js";
 import orderRoutes from "./orderRoutes.js";
+import Product from "./Product.js"; // ✅ Ensure Product is imported
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -24,7 +25,7 @@ async function connectDB() {
 }
 connectDB();
 
-// 🛠 Middleware
+// ⚙️ Middleware
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -44,7 +45,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ⬇️ Serve Static Files
+// 📁 Serve Static Files
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(express.static(path.join(process.cwd(), "public")));
 
@@ -55,44 +56,10 @@ app.use("/api/orders", orderRoutes);
 // ✅ Default Route
 app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
 
-// 🔥 Place Order and Deduct Stock
-app.post("/api/orders", async (req, res) => {
-  try {
-    const { fullname, gcash, address, items, total, paymentProof } = req.body;
-    if (!fullname || !gcash || !address || !items || !total || !paymentProof) {
-      return res.status(400).json({ message: "❌ All fields are required." });
-    }
-
-    const orderItems = typeof items === "string" ? JSON.parse(items) : items;
-    console.log("📦 Received Order Items:", orderItems);
-
-    // Validate and Deduct Stock in One Transaction
-    const bulkOps = orderItems.map(item => ({
-      updateOne: {
-        filter: { _id: item.id },
-        update: { $inc: { stock: -item.quantity } }
-      }
-    }));
-
-    const updatedProducts = await Product.bulkWrite(bulkOps);
-    console.log("📉 Stock Updated for Products:", updatedProducts);
-
-    // Save Order
-    const newOrder = new Order({ fullname, gcash, address, items: orderItems, total, paymentProof });
-    const savedOrder = await newOrder.save();
-    console.log("✅ Order Saved:", savedOrder);
-
-    res.status(201).json({ message: "✅ Order placed successfully!", order: savedOrder });
-  } catch (error) {
-    console.error("❌ Order Placement Error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// 📸 Upload Image Route
+// 🖼 Upload Image Route
 app.post("/api/upload", upload.single("image"), (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded" });
+    return res.status(400).json({ error: "❌ No file uploaded" });
   }
   res.json({ imageUrl: `/uploads/${req.file.filename}` });
 });
@@ -110,3 +77,4 @@ app.use((err, req, res, next) => {
 
 // 🌍 Start Server
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+

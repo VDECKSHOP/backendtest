@@ -12,14 +12,21 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// ✅ Order Schema
+// ✅ Order Schema (Updated)
 const Order = mongoose.models.Order || mongoose.model("Order", new mongoose.Schema({
-    fullname: { type: String, required: true },
-    gcash: { type: String, required: true },
+    firstname: { type: String, required: true },
+    lastname: { type: String, required: true },
     address: { type: String, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    postcode: { type: String, required: true },
+    phone: { type: String, required: true },
+    email: { type: String, required: true },
     items: [{ name: String, quantity: Number, price: Number }],
     total: { type: Number, required: true },
-    paymentProof: { type: String, required: true }, // ✅ Cloudinary URL
+    paymentMethod: { type: String, required: true, enum: ["gcash", "cod"] }, // ✅ Store payment method
+    paymentProof: { type: String }, // ✅ Optional for COD
+    orderNotes: { type: String }, // ✅ Store order notes
     status: { type: String, default: "Pending" },
     createdAt: { type: Date, default: Date.now }
 }));
@@ -38,10 +45,12 @@ router.get("/", async (req, res) => {
 // ✅ Submit Order with Image Upload
 router.post("/", upload.single("paymentProof"), async (req, res) => {
     try {
-        const { fullname, gcash, address, items, total } = req.body;
+        const {
+            firstname, lastname, address, city, state, postcode, phone, email, items, total, paymentMethod, orderNotes
+        } = req.body;
 
-        if (!fullname || !gcash || !address || !items || !total || !req.file) {
-            return res.status(400).json({ error: "❌ All fields and payment proof are required." });
+        if (!firstname || !lastname || !address || !city || !state || !postcode || !phone || !email || !items || !total || !paymentMethod) {
+            return res.status(400).json({ error: "❌ All required fields must be filled." });
         }
 
         // ✅ Parse items if sent as a string
@@ -52,34 +61,44 @@ router.post("/", upload.single("paymentProof"), async (req, res) => {
             return res.status(400).json({ error: "❌ Invalid items format." });
         }
 
-        // ✅ Upload Image to Cloudinary
-        const uploadStream = cloudinary.uploader.upload_stream(
-            { folder: "payment_proofs" },
-            async (error, result) => {
-                if (error) {
-                    console.error("❌ Cloudinary Upload Error:", error);
-                    return res.status(500).json({ error: "❌ Image upload failed." });
+        let paymentProofUrl = "";
+        if (paymentMethod === "gcash" && req.file) {
+            // ✅ Upload Image to Cloudinary
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { folder: "payment_proofs" },
+                async (error, result) => {
+                    if (error) {
+                        console.error("❌ Cloudinary Upload Error:", error);
+                        return res.status(500).json({ error: "❌ Image upload failed." });
+                    }
+
+                    paymentProofUrl = result.secure_url;
+                    await saveOrder();
                 }
+            );
 
-                // ✅ Save order to MongoDB
-                const newOrder = new Order({
-                    fullname,
-                    gcash,
-                    address,
-                    items: parsedItems,
-                    total,
-                    paymentProof: result.secure_url,
-                    status: "Pending"
-                });
+            // ✅ Fix Cloudinary Streaming Issue
+            Readable.from(req.file.buffer).pipe(uploadStream);
+        } else {
+            await saveOrder();
+        }
 
-                await newOrder.save();
-                console.log("✅ Order Saved:", newOrder);
-                res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
-            }
-        );
+        async function saveOrder() {
+            // ✅ Save order to MongoDB
+            const newOrder = new Order({
+                firstname, lastname, address, city, state, postcode, phone, email,
+                items: parsedItems,
+                total,
+                paymentMethod,
+                paymentProof: paymentProofUrl,
+                orderNotes,
+                status: "Pending"
+            });
 
-        // ✅ Fix Cloudinary Streaming Issue
-        Readable.from(req.file.buffer).pipe(uploadStream);
+            await newOrder.save();
+            console.log("✅ Order Saved:", newOrder);
+            res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
+        }
 
     } catch (error) {
         console.error("❌ Order Submission Error:", error);
@@ -94,6 +113,17 @@ router.delete("/:id", async (req, res) => {
         const order = await Order.findById(id);
         if (!order) return res.status(404).json({ error: "❌ Order not found." });
 
+        if (order.paymentProof) {
+            try {
+                const publicId = extractPublicId(order.paymentProof);
+                if (publicId) {
+                    await cloudinary.uploader.destroy(publicId);
+                }
+            } catch (error) {
+                console.error("❌ Error deleting payment proof from Cloudinary:", error);
+            }
+        }
+
         await Order.findByIdAndDelete(id);
         res.json({ message: "✅ Order deleted successfully." });
     } catch (error) {
@@ -102,6 +132,14 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
+// ✅ Extract Cloudinary Public ID from URL
+function extractPublicId(url) {
+    const regex = /\/upload\/v\d+\/([^/.]+)\.\w+$/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+}
+
 export default router;
+
 
 

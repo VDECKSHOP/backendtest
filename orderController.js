@@ -2,13 +2,26 @@ import cloudinary from "./cloudinary.js";
 import Order from "./order.js";
 import Product from "./product.js"; // ✅ Import Product Model
 
-// ✅ Create a New Order
+// ✅ Create a New Order (Matches checkout.html)
 export const createOrder = async (req, res) => {
   try {
-    const { fullname, gcash, address, items, total, paymentProof } = req.body;
+    const {
+      firstname,
+      lastname,
+      address,
+      city,
+      state,
+      postcode,
+      phone,
+      email,
+      items,
+      total,
+      paymentMethod,
+      orderNotes,
+    } = req.body;
 
-    if (!fullname || !gcash || !address || !items || !total || !paymentProof) {
-      return res.status(400).json({ error: "❌ Please fill in all fields and upload a payment proof." });
+    if (!firstname || !lastname || !address || !city || !state || !postcode || !phone || !email || !items || !total || !paymentMethod) {
+      return res.status(400).json({ error: "❌ Please fill in all required fields." });
     }
 
     // ✅ Parse `items` if it's sent as a JSON string
@@ -32,56 +45,72 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // ✅ Upload payment proof to Cloudinary
-    const cloudinaryResponse = await cloudinary.uploader.upload(paymentProof, {
-      folder: "payment_proofs",
-    });
+    // ✅ Upload payment proof if provided
+    let paymentProofUrl = "";
+    if (req.file) {
+      const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path, {
+        folder: "payment_proofs",
+      });
+      paymentProofUrl = cloudinaryResponse.secure_url;
+    }
 
     // ✅ Create new order
     const newOrder = new Order({
-      fullname,
-      gcash,
+      firstname,
+      lastname,
       address,
+      city,
+      state,
+      postcode,
+      phone,
+      email,
       items: parsedItems,
       total,
-      paymentProof: cloudinaryResponse.secure_url, // Store image URL from Cloudinary
+      paymentMethod,
+      paymentProof: paymentProofUrl, // Store image URL from Cloudinary
+      orderNotes,
       status: "Pending",
     });
 
     await newOrder.save();
 
-// ✅ Deduct stock AFTER order is successfully saved
-for (const item of parsedItems) {
-  try {
-    // ✅ Fetch the product before updating stock
-    const product = await Product.findById(item._id); // 🔍 Ensure `_id` is used correctly
+    // ✅ Deduct stock AFTER order is successfully saved
+    for (const item of parsedItems) {
+      try {
+        // ✅ Fetch the product before updating stock
+        const product = await Product.findById(item.productId);
 
-    if (!product) {
-      console.error(`❌ Product not found in DB: ${item._id}`);
-      continue; // Skip if the product doesn't exist
+        if (!product) {
+          console.error(`❌ Product not found in DB: ${item.productId}`);
+          continue; // Skip if the product doesn't exist
+        }
+
+        console.log(`🔍 Before Update: ${product.name} - Stock: ${product.stock}`);
+
+        // ✅ Perform the stock deduction
+        const updateResult = await Product.updateOne(
+          { _id: item.productId },
+          { $inc: { stock: -item.quantity } }
+        );
+
+        console.log(`🛠️ MongoDB Update Result:`, updateResult);
+
+        // ✅ Fetch product again to verify stock update
+        const updatedProduct = await Product.findById(item.productId);
+        console.log(`✅ After Update: ${updatedProduct.name} - New Stock: ${updatedProduct.stock}`);
+
+      } catch (err) {
+        console.error(`❌ Error updating stock for Product ID: ${item.productId}`, err);
+      }
     }
 
-    console.log(`🔄 Before Update: ${product.name} - Stock: ${product.stock}`);
+    res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
 
-    // ✅ Perform the stock deduction
-    const updateResult = await Product.updateOne(
-      { _id: item._id }, // Ensure correct `_id` is used
-      { $inc: { stock: -item.quantity } }
-    );
-
-    console.log(`🛠️ MongoDB Update Result:`, updateResult);
-
-    // ✅ Fetch product again to verify stock update
-    const updatedProduct = await Product.findById(item._id);
-    console.log(`✅ After Update: ${updatedProduct.name} - New Stock: ${updatedProduct.stock}`);
-
-  } catch (err) {
-    console.error(`❌ Error updating stock for Product ID: ${item._id}`, err);
+  } catch (error) {
+    console.error("❌ Error creating order:", error);
+    res.status(500).json({ error: "❌ Internal Server Error" });
   }
-}
-
-
-res.status(201).json({ message: "✅ Order placed successfully!", order: newOrder });
+};
 
 // ✅ Fetch a Single Order by ID
 export const getOrderById = async (req, res) => {
