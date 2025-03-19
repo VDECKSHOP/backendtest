@@ -7,7 +7,6 @@ import path from "path";
 import fs from "fs";
 import productRoutes from "./productRoutes.js";
 import orderRoutes from "./orderRoutes.js";
-import Product from "./Product.js"; // ✅ Ensure Product is imported
 
 const app = express();
 const PORT = process.env.PORT || 4000;
