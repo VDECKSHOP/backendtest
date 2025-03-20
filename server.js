@@ -65,7 +65,7 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
 
 // ? Handle Undefined Routes
 app.use((req, res) => {
-  res.status(404).json({ error: "? Route Not Found" });
+  res.status(404).json({ error: " Route Not Found" });
 });
 
 // ? Global Error Handling
@@ -75,4 +75,4 @@ app.use((err, req, res, next) => {
 });
 
 // ?? Start Server
-app.listen(PORT, () => console.log(`?? Server running at http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));

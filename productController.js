@@ -3,13 +3,12 @@ const Product = require("./Product");
 
 exports.uploadProduct = async (req, res) => {
   try {
-    const { name, price, category, description, stock, bestSeller } = req.body; // ✅ Added bestSeller
-
+    const { name, price, category, description, stock } = req.body; // ✅ Include stock
     if (!name || !price || !category || stock === undefined || req.files.length === 0) {
       return res.status(400).json({ error: "Please fill all fields including stock and upload at least one image." });
     }
 
-    // Upload images to Cloudinary
+    // Upload each image to Cloudinary
     const imageUrls = await Promise.all(
       req.files.map(async (file) => {
         const result = await cloudinary.uploader.upload(file.path, { folder: process.env.CLOUDINARY_FOLDER });
@@ -17,14 +16,13 @@ exports.uploadProduct = async (req, res) => {
       })
     );
 
-    // ✅ Ensure stock & bestSeller are saved in MongoDB
+    // ✅ Ensure stock is saved in MongoDB
     const newProduct = new Product({ 
       name, 
       price, 
       category, 
       description, 
       stock: Number(stock), // ✅ Convert stock to a number
-      bestSeller: bestSeller === "true", // ✅ Convert string to boolean
       images: imageUrls 
     });
 
@@ -37,26 +35,6 @@ exports.uploadProduct = async (req, res) => {
   }
 };
 
-exports.getProducts = async (req, res) => {
-  try {
-    const products = await Product.find({}, "name price category description stock images bestSeller");
-    res.json(products);
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-// ✅ Get Best Sellers
-exports.getBestSellers = async (req, res) => {
-  try {
-    const bestSellers = await Product.find({ bestSeller: true });
-    res.json(bestSellers);
-  } catch (error) {
-    console.error("Error fetching best sellers:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
 
 exports.getProductById = async (req, res) => {
   try {
@@ -65,29 +43,6 @@ exports.getProductById = async (req, res) => {
     res.json(product);
   } catch (error) {
     console.error("Error fetching product:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-// ✅ Update Product (Includes Best Seller)
-exports.updateProduct = async (req, res) => {
-  try {
-    const { name, price, stock, category, description, bestSeller } = req.body;
-    const product = await Product.findById(req.params.id);
-
-    if (!product) return res.status(404).json({ error: "Product not found" });
-
-    product.name = name || product.name;
-    product.price = price || product.price;
-    product.stock = stock || product.stock;
-    product.category = category || product.category;
-    product.description = description || product.description;
-    product.bestSeller = bestSeller === "true"; // ✅ Convert to boolean
-
-    await product.save();
-    res.json({ message: "✅ Product updated successfully!", product });
-  } catch (error) {
-    console.error("Error updating product:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
