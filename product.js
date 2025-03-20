@@ -7,6 +7,7 @@ const productSchema = new mongoose.Schema({
   description: String,
   images: [String],
   stock: { type: Number, required: true, default: 0 }, // ✅ Add stock field
+ bestSeller: { type: Boolean, default: false } // ✅ New field for Best Seller
 });
 
 const Product = mongoose.model("Product", productSchema);

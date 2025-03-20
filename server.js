@@ -12,24 +12,24 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mydatabase";
 
-// 🔥 MongoDB Connection
+// ?? MongoDB Connection
 async function connectDB() {
   try {
     await mongoose.connect(MONGO_URI);
-    console.log("✅ Connected to MongoDB");
+    console.log("? Connected to MongoDB");
   } catch (err) {
-    console.error("❌ MongoDB Connection Error:", err);
+    console.error("? MongoDB Connection Error:", err);
     setTimeout(connectDB, 5000);
   }
 }
 connectDB();
 
-// ⚙️ Middleware
+// ?? Middleware
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// 📂 Multer Storage Setup
+// ?? Multer Storage Setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(process.cwd(), "uploads");
@@ -44,36 +44,35 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// 📁 Serve Static Files
+// ?? Serve Static Files
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(express.static(path.join(process.cwd(), "public")));
 
-// 🚀 API Routes
+// ?? API Routes
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 
-// ✅ Default Route
-app.get("/", (req, res) => res.send("🚀 VDECK API is running..."));
+// ? Default Route
+app.get("/", (req, res) => res.send("?? VDECK API is running..."));
 
-// 🖼 Upload Image Route
+// ?? Upload Image Route
 app.post("/api/upload", upload.single("image"), (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: "❌ No file uploaded" });
+    return res.status(400).json({ error: "No file uploaded" });
   }
   res.json({ imageUrl: `/uploads/${req.file.filename}` });
 });
 
-// ❌ Handle Undefined Routes
+// ? Handle Undefined Routes
 app.use((req, res) => {
-  res.status(404).json({ error: "❌ Route Not Found" });
+  res.status(404).json({ error: "? Route Not Found" });
 });
 
-// ❌ Global Error Handling
+// ? Global Error Handling
 app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err);
+  console.error("? Server Error:", err);
   res.status(err.statusCode || 500).json({ error: err.message || "Internal Server Error" });
 });
 
-// 🌍 Start Server
-app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-
+// ?? Start Server
+app.listen(PORT, () => console.log(`?? Server running at http://localhost:${PORT}`));
