@@ -7,11 +7,11 @@ const router = express.Router();
 const upload = multer({ dest: "uploads/" });
 
 /**
- * ✅ Add a Product (Includes Stock)
+ * ✅ Add a Product (Includes Stock & BestSeller Option)
  */
 router.post("/", upload.array("images", 6), async (req, res) => {
   try {
-    const { name, price, category, description, stock } = req.body;
+    const { name, price, category, description, stock, bestSeller } = req.body;
 
     if (!name || !price || !category || stock === undefined || req.files.length === 0) {
       return res.status(400).json({ error: "❌ Please fill in all fields including stock and upload at least one image." });
@@ -27,7 +27,7 @@ router.post("/", upload.array("images", 6), async (req, res) => {
       })
     );
 
-    // ✅ Save the product with stock
+    // ✅ Save the product with stock and bestSeller flag
     const newProduct = new Product({
       name,
       price,
@@ -35,6 +35,7 @@ router.post("/", upload.array("images", 6), async (req, res) => {
       description,
       stock: Math.max(0, Number(stock)), // ✅ Ensure stock is a non-negative number
       images: imageUrls,
+      bestSeller: bestSeller === "true", // Convert to Boolean
     });
 
     await newProduct.save();
@@ -50,10 +51,22 @@ router.post("/", upload.array("images", 6), async (req, res) => {
  */
 router.get("/", async (req, res) => {
   try {
-    const products = await Product.find({}, "name price category description stock images");
+    const products = await Product.find({}, "name price category description stock images bestSeller");
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: "❌ Failed to fetch products" });
+  }
+});
+
+/**
+ * ✅ Get Best Sellers Only
+ */
+router.get("/best-sellers", async (req, res) => {
+  try {
+    const bestSellers = await Product.find({ bestSeller: true }, "name price category description stock images");
+    res.json(bestSellers);
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to fetch best sellers" });
   }
 });
 
@@ -107,7 +120,7 @@ router.patch("/:id/update-stock", async (req, res) => {
  */
 router.put("/:id", upload.single("image"), async (req, res) => {
   try {
-    const { name, price, stock, category, description } = req.body;
+    const { name, price, stock, category, description, bestSeller } = req.body;
 
     const product = await Product.findById(req.params.id);
     if (!product) {
@@ -119,6 +132,7 @@ router.put("/:id", upload.single("image"), async (req, res) => {
     product.stock = stock || product.stock;
     product.category = category || product.category;
     product.description = description || product.description;
+    product.bestSeller = bestSeller === "true" ? true : product.bestSeller;
 
     if (req.file) {
       const result = await cloudinary.uploader.upload(req.file.path, {
