@@ -6,12 +6,14 @@ const productSchema = new mongoose.Schema({
   category: String,
   description: String,
   images: [String],
-  stock: { type: Number, required: true, default: 0 }, // ✅ Add stock field
-	bestSeller: { type: Boolean, default: false } // Add bestSeller field
+  stock: { type: Number, required: true, default: 0 }, // ✅ Stock field
+  bestSeller: { type: Boolean, default: false }, // ✅ Best Seller field
+  newArrival: { type: Boolean, default: false } // ✅ New Arrival field
 });
 
 const Product = mongoose.model("Product", productSchema);
 
 export default Product;
+
 
 
