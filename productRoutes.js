@@ -63,12 +63,13 @@ router.get("/", async (req, res) => {
  */
 router.get("/best-sellers", async (req, res) => {
   try {
-    const bestSellers = await Product.find({ bestSeller: true }, "name price category description stock images");
+    const bestSellers = await Product.find({ bestSeller: true });
     res.json(bestSellers);
   } catch (error) {
-    res.status(500).json({ error: "❌ Failed to fetch best sellers" });
+    res.status(500).json({ error: "❌ Failed to fetch best sellers." });
   }
 });
+
 
 /**
  * ✅ Get Single Product by ID (Includes Stock)
